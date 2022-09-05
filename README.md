@@ -1,4 +1,4 @@
-# StacjaPogodowa
+# Stacja pogodowa
 Stacja pogodowa wykorzystująca Raspberry Pi Pico W. Czyta dane o temperaturze i wilgotności i pokazuje je na wyświetlaczu. Domyślnie ma te dane przesyłać na serwer do bazy danych.
 
 Dodatkowo w głównym folderze powinien znajdować się folder ```netinfo.txt```, który zawiera SSID i hasło do naszego WiFi w następującym formacie:
@@ -13,5 +13,6 @@ Dodatkowo w głównym folderze powinien znajdować się folder ```netinfo.txt```
 - [X] Czytanie informacji o temperaturze i wilgotności przez czujnik [DHT22](https://botland.com.pl/czujniki-multifunkcyjne/2637-czujnik-temperatury-i-wilgotnosci-dht22-am2302-modul-przewody-5904422372712.html)
 - [X] Obsługa odbiornika podczerwieni dla komunikacji użytkownika z programem (zmiana godziny, zciemnianie wyświetlacza) z pomocą [repozytorium micropython_ir](https://github.com/peterhinch/micropython_ir)
 - [X] Pobieranie aktualnej godziny
+- [X] Wyświetlanie polskich znaków
 - [ ] Łączenie się z lokalnym serwerem
 - [ ] Wysyłanie informacji z czujników na serwer
