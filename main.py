@@ -212,8 +212,6 @@ while True:
         lcd.putstr("N/A  ")
         lcd.move_to(12,3)
         lcd.putstr("N/A  ")
-    contents = {"temperatura": temp, "wilgoc": wilg}
-    contents_json = json.dumps(contents)
     read = uart.read()
     if read is not None and "+IPD" in read:
         #print(read)
@@ -223,8 +221,10 @@ while True:
         print(f"URL '{URL}'")
         
         if URL=='/api':
+            contents = {"temperatura": temp, "wilgoc": wilg, "czas": zegar.time_tuple}
+            contents_json = json.dumps(contents)
             HTML_CONTENT = contents_json      
-            HTML_SENDER = f'GET HTTP/1.1 200 OK\r\nContent-Type: application/json;charset=UTF-8\r\nConnection: close\r\n\r\n{HTML_CONTENT}\r\n\r\n'
+            HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: application/json;charset=UTF-8\r\nConnection: close\r\n\r\n{HTML_CONTENT}\r\n\r\n'
         else:
             HTML_CONTENT = f"<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Stacja pogodowa</title></head><body bgcolor='gray' style='color: black'><h1>Temperatura: {temp} &#xb0;C</h1><h1>Wilgotnosc: {wilg} %</h1><hr><a href='/api'><button><h2>API</h2></button></a></body></html>"        
             HTML_SENDER = f'GET HTTP/1.1 200 OK\r\nContent-Type: text/html;charset=UTF-8\r\nConnection: close\r\n\r\n<!DOCTYPE HTML>\r\n{HTML_CONTENT}\r\n\r\n'
