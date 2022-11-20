@@ -1,9 +1,10 @@
 # Stacja pogodowa
 Projekt wykorzystuje:
-- [Raspberry Pi Pico W](https://botland.com.pl/moduly-i-zestawy-do-raspberry-pi-pico/21574-raspberry-pi-pico-w-rp2040-arm-cortex-m0-cyw43439-wifi-5056561803173.html) ***(model z internetem)***
+- [Raspberry Pi Pico](https://botland.com.pl/moduly-i-zestawy-do-raspberry-pi-pico/18767-raspberry-pi-pico-rp2040-arm-cortex-m0-0617588405587.html)
 - [Wyświetlacz LCD 4x20](https://botland.com.pl/wyswietlacze-alfanumeryczne-i-graficzne/19735-wyswietlacz-lcd-4x20-znakow-zielony-justpi-5903351243094.html)
 - [Konwerter I2C](https://botland.com.pl/konwertery-pozostale/2352-konwerter-i2c-dla-wyswietlacza-lcd-hd44780-5903351248693.html)
 - [Czujnik temperatury i wilgotności DHT22](https://botland.com.pl/czujniki-multifunkcyjne/2637-czujnik-temperatury-i-wilgotnosci-dht22-am2302-modul-przewody-5904422372712.html)
+- Moduł internetowy [ESP-01](https://botland.com.pl/produkty-wycofane/4527-modul-wifi-esp-01-esp8266-black-3-gpio-1mb-pcb-antena-5904422332877.html)
 - Dowolny [odbiornik podczerwieni](https://botland.com.pl/odbiorniki-podczerwieni/4931-odbiornik-podczerwieni-tsop31236-36-khz-5904422302757.html)
 
 
@@ -35,5 +36,3 @@ W głównym folderze Pico powinien znajdować się folder ```netinfo.txt```, kt�
 >SSID
 >
 >HASŁO   
-
-(trzy dwukropki wymagane, ponieważ mogą występować w haśle)
