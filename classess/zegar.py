@@ -20,3 +20,4 @@ class Zegar:
     def __str__(self):
         return "{0:02d}:{1:02d}:{2:02d}".format(self.godzina,self.minuta,self.sekunda)
     
+

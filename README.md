@@ -29,10 +29,3 @@ Projekt wykorzystuje:
 
 # Diagram połączenia
 ![diagram połączenia](img/stacja_pogodowa.png)
-
-
-# Inicjacja
-W głównym folderze Pico powinien znajdować się folder ```netinfo.txt```, który w pierwszej lini zawiera SSID i drugiej hasło do naszego WiFi:
->SSID
->
->HASŁO   

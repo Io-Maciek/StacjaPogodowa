@@ -8,12 +8,11 @@ import json
 import _thread
 from classess.polskie_znaki import *
 from classess.http.esp8266 import ESP8266
-
+from classess.admin_mode_main import admin_main
 
 # dioda informacyjna
 led = Pin(25, Pin.OUT)
 led.off()
-
 
 
 # ekran
@@ -28,22 +27,6 @@ lcd.custom_char(3,e)
 lcd.custom_char(4,s)
 lcd.custom_char(5,c)
 
-
-
-# czujnik pogody
-rp2.PIO(0).remove_program() #?????
-sensor = DHT22(Pin(18,Pin.IN,Pin.PULL_UP))
-
-
-
-# czytanie lokalnego dodatku godziny z pliku g.txt
-godzina_local=0
-try:
-    f = open("g.txt","r+")
-    godzina_local = int(f.read())
-    f.close()
-except (OSError, ValueError):
-    godzina_local = 0
 
 
 
@@ -87,19 +70,49 @@ def ir_callback(data, addr, ctrl):
 ir = NEC(Pin(19, Pin.IN),ir_callback)
 
 
-# uruchamianie esp01
+
+
+
+
+# INICJACJA
 print("Init")
 lcd.putstr("Init")
+
+# guzik trybu administracyjnego
+admin_mode = False
+def set_admin_mode(button):
+    global admin_mode
+    if not admin_mode:
+        admin_mode = True
+
+button_admin = Pin(14, Pin.IN, Pin.PULL_DOWN)
+button_admin.irq(trigger=Pin.IRQ_FALLING, handler=set_admin_mode, hard=True)
+
+# uruchamianie esp01
 esp01 = ESP8266(txPin=(16), rxPin=(17))
 esp8266_at_ver = None
 
-print("Start",esp01.reStart())
+print("Start",esp01.reStart())#esp01.startUP())
 print("Wyłączam echo",esp01.echoING())
 print("\r\n\r\n")
 
 esp8266_at_ver = esp01.getVersion()
 if(esp8266_at_ver != None):
     print(esp8266_at_ver)
+    time.sleep(0.5)
+
+
+button_admin.irq(trigger=0)
+if admin_mode:# or not admin_mode:
+    print("\n###                     ###\n### TRYB ADMINISTRATORA ###\n###                     ###\n")
+    admin_main(esp01, lcd)
+    print("\n###            ###\n### ZAKOŃCZONO ###\n###            ###\n")
+    lcd.clear()
+    lcd.putstr("Re Init")
+    print("Restart",esp01.reStart())
+    print("Wyłączam echo",esp01.echoING())
+    print("\r\n\r\n")
+
 
 esp01.setCurrentWiFiMode(1)
 print("\r\n\r\nŁączę z WiFi...")
@@ -169,11 +182,28 @@ def update_connection_mark():
         lcd.putchar('X')
     else:
         lcd.putchar(chr(0))
-        
+
+
+
+# czytanie lokalnego dodatku godziny z pliku g.txt
+godzina_local=0
+try:
+    f = open("g.txt","r+")
+    godzina_local = int(f.read())
+    f.close()
+except (OSError, ValueError):
+    godzina_local = 0
+
+
 godzinaIsSet = False
 download_and_set_time(True)
 
 
+
+        
+# czujnik pogody
+rp2.PIO(0).remove_program() #?????
+sensor = DHT22(Pin(18,Pin.IN,Pin.PULL_UP))
 
 
 # program
@@ -227,10 +257,10 @@ while True:
             HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: application/json;charset=UTF-8\r\nConnection: close\r\n\r\n{HTML_CONTENT}\r\n\r\n'
         else:
             HTML_CONTENT = f"<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Stacja pogodowa</title></head><body bgcolor='gray' style='color: black'><h1>Temperatura: {temp} &#xb0;C</h1><h1>Wilgotnosc: {wilg} %</h1><hr><a href='/api'><button><h2>API</h2></button></a></body></html>"        
-            HTML_SENDER = f'GET HTTP/1.1 200 OK\r\nContent-Type: text/html;charset=UTF-8\r\nConnection: close\r\n\r\n<!DOCTYPE HTML>\r\n{HTML_CONTENT}\r\n\r\n'
+            HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: text/html;charset=UTF-8\r\nConnection: close\r\n\r\n<!DOCTYPE HTML>\r\n{HTML_CONTENT}\r\n\r\n'
         uart.write(f'AT+CIPSEND=0,{len(HTML_SENDER)}\r\n')
         time.sleep(0.1)
         uart.write(HTML_SENDER)
         time.sleep(0.1)
         uart.write('AT+CIPCLOSE=0\r\n')
-    time.sleep(.2)
+    time.sleep(.8)
