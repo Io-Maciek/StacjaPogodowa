@@ -5,6 +5,7 @@ Projekt wykorzystuje:
 - [Konwerter I2C](https://botland.com.pl/konwertery-pozostale/2352-konwerter-i2c-dla-wyswietlacza-lcd-hd44780-5903351248693.html)
 - [Czujnik temperatury i wilgotności DHT22](https://botland.com.pl/czujniki-multifunkcyjne/2637-czujnik-temperatury-i-wilgotnosci-dht22-am2302-modul-przewody-5904422372712.html)
 - Moduł internetowy [ESP-01](https://botland.com.pl/produkty-wycofane/4527-modul-wifi-esp-01-esp8266-black-3-gpio-1mb-pcb-antena-5904422332877.html)
+- Czujnik pyłów PM1.0/2.5/10 [PMS5003](https://botland.com.pl/czujniki-czystosci-powietrza/6797-czujnik-pyluczystosci-powietrza-pm10-pm25-pm10-pms5003-5v-uart-5904422359041.html)
 - Dowolny [odbiornik podczerwieni](https://botland.com.pl/odbiorniki-podczerwieni/4931-odbiornik-podczerwieni-tsop31236-36-khz-5904422302757.html)
 
 
@@ -21,8 +22,6 @@ Projekt wykorzystuje:
 - [X] Pobieranie aktualnej godziny
 - [X] Wyświetlanie polskich znaków
 - [X] Tworzenie serwera wyświetlającego informację z czujników w formacie czytelnym i JSON
-- [ ] Dodanie czujników i sensorów
-  - [ ] Czujnik pyłów
 
 
 

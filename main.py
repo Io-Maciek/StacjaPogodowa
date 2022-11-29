@@ -9,6 +9,7 @@ import _thread
 from classess.polskie_znaki import *
 from classess.http.esp8266 import ESP8266
 from classess.admin_mode_main import admin_main
+from classess.pms_sensor import PMS5003
 
 # dioda informacyjna
 led = Pin(25, Pin.OUT)
@@ -206,6 +207,15 @@ rp2.PIO(0).remove_program() #?????
 sensor = DHT22(Pin(18,Pin.IN,Pin.PULL_UP))
 
 
+# czujnik pylow
+pms = PMS5003(
+    uart=machine.UART(1, tx=machine.Pin(8), rx=machine.Pin(9), baudrate=9600),
+    pin_enable=machine.Pin(3),
+    pin_reset=machine.Pin(2),
+    mode="active"
+)
+
+
 # program
 lcd.clear()
 #print(str(esp01._sendToESP8266("AT+CIPSTA='192.168.254.230','192.168.254.254','255.255.255.0'\r\n")))
@@ -242,6 +252,11 @@ while True:
         lcd.putstr("N/A  ")
         lcd.move_to(12,3)
         lcd.putstr("N/A  ")
+    pms_data = pms.read().data[:3]
+    PM1_0 = pms_data[0]
+    PM2_5 = pms_data[1]
+    PM10 = pms_data[2]
+    
     read = uart.read()
     if read is not None and "+IPD" in read:
         #print(read)
@@ -249,18 +264,18 @@ while True:
         _LAST = str(read).index("HTTP/1.1")-1
         URL = str(read)[_FIRST:_LAST]
         print(f"URL '{URL}'")
-        
+        time.sleep(0.1)
         if URL=='/api':
-            contents = {"temperatura": temp, "wilgoc": wilg, "czas": zegar.time_tuple}
+            contents = {"temperatura": temp, "wilgoc": wilg, "czas": zegar.time_tuple, "PM1_0": PM1_0, "PM2_5": PM2_5, "PM10": PM10}
             contents_json = json.dumps(contents)
             HTML_CONTENT = contents_json      
             HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: application/json;charset=UTF-8\r\nConnection: close\r\n\r\n{HTML_CONTENT}\r\n\r\n'
         else:
-            HTML_CONTENT = f"<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Stacja pogodowa</title></head><body bgcolor='gray' style='color: black'><h1>Temperatura: {temp} &#xb0;C</h1><h1>Wilgotnosc: {wilg} %</h1><hr><a href='/api'><button><h2>API</h2></button></a></body></html>"        
+            HTML_CONTENT = f"<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Stacja pogodowa</title></head><body bgcolor='gray' style='color: black'><h1>Temperatura: {temp} &#xb0;C</h1><h1>Wilgotnosc: {wilg} %</h1><h1>PM1.0: {PM1_0} ug/m3</h1><h1>PM2.5: {PM2_5} ug/m3</h1><h1>PM10: {PM10} ug/m3</h1><hr><a href='/api'><button><h2>API</h2></button></a></body></html>"        
             HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: text/html;charset=UTF-8\r\nConnection: close\r\n\r\n<!DOCTYPE HTML>\r\n{HTML_CONTENT}\r\n\r\n'
         uart.write(f'AT+CIPSEND=0,{len(HTML_SENDER)}\r\n')
         time.sleep(0.1)
         uart.write(HTML_SENDER)
         time.sleep(0.1)
-        uart.write('AT+CIPCLOSE=0\r\n')
+    uart.write('AT+CIPCLOSE=0\r\n')
     time.sleep(.8)

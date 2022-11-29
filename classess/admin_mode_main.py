@@ -34,6 +34,7 @@ def admin_main(e, lcd):
             _LAST = str(read).index("HTTP/1.1")-1
             URL = str(read)[_FIRST:_LAST]
             print(f"URL '{URL}'")
+            time.sleep(0.1)
             if URL=='/end':
                 SERVER_LOOP=False
             if URL=='/wifi':
@@ -64,6 +65,6 @@ def admin_main(e, lcd):
                 time.sleep(0.1)
                 uart.write(HTML_SENDER)
             time.sleep(0.1)
-            uart.write('AT+CIPCLOSE=0\r\n')
+        uart.write('AT+CIPCLOSE=0\r\n')
         time.sleep(.3)
 
