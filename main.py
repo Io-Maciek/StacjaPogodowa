@@ -218,11 +218,11 @@ pms = PMS5003(
 
 # program
 lcd.clear()
-#print(str(esp01._sendToESP8266("AT+CIPSTA='192.168.254.230','192.168.254.254','255.255.255.0'\r\n")))
+print("Konfiguracja internetu: "+str(esp01._sendToESP8266("AT+CIPSTA=\"192.168.254.200\",\"192.168.254.254\",\"255.255.255.0\"\r\n")))
 esp01._sendToESP8266('AT+CIPMUX=1\r\n')
-ip = str(esp01._sendToESP8266("AT+CIPSTA?\r\n"))[14:29]+":8000"
+ip = str(esp01._sendToESP8266("AT+CIPSTA?\r\n"))[14:29]
 print("IP: "+ip)
-print("Server: "+str(esp01._sendToESP8266('AT+CIPSERVER=1,8000\r\n')))
+print("Server: "+str(esp01._sendToESP8266('AT+CIPSERVER=1,80\r\n')))
 uart = esp01.__uartObj
 lcd.move_to(0,1)
 lcd.putstr(ip)
