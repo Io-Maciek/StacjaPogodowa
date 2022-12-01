@@ -93,7 +93,8 @@ button_admin.irq(trigger=Pin.IRQ_FALLING, handler=set_admin_mode, hard=True)
 esp01 = ESP8266(txPin=(16), rxPin=(17))
 esp8266_at_ver = None
 
-print("Start",esp01.reStart())#esp01.startUP())
+print("Start",esp01.startUP())#esp01.reStart())
+esp01._sendToESP8266("AT+RESTORE\r\n")
 print("Wyłączam echo",esp01.echoING())
 print("\r\n\r\n")
 
@@ -131,6 +132,13 @@ while (1):
         print(".")
         time.sleep(2)
 
+if len(net_lines)>3:
+    print("not DHCP")
+    print("Konfiguracja internetu: "+str(esp01._sendToESP8266(f"AT+CIPSTA=\"{net_lines[2]}\",\"{net_lines[3]}\",\"{net_lines[4]}\"\r\n")))
+else:
+    print("DHCP")
+
+print("ALL: "+str(str(esp01._sendToESP8266("AT+CIPSTA?\r\n"))))
 lcd.putchar(chr(0))
 led.off()
 print("\nPołączono!")
@@ -218,11 +226,10 @@ pms = PMS5003(
 
 # program
 lcd.clear()
-print("Konfiguracja internetu: "+str(esp01._sendToESP8266("AT+CIPSTA=\"192.168.254.200\",\"192.168.254.254\",\"255.255.255.0\"\r\n")))
+print("")
 esp01._sendToESP8266('AT+CIPMUX=1\r\n')
 ip = str(esp01._sendToESP8266("AT+CIPSTA?\r\n"))[14:29]
-print("IP: "+ip)
-print("Server: "+str(esp01._sendToESP8266('AT+CIPSERVER=1,80\r\n')))
+print("Server: "+str(esp01._sendToESP8266('AT+CIPSERVER=1,80\r\n'))+"\n\n")
 uart = esp01.__uartObj
 lcd.move_to(0,1)
 lcd.putstr(ip)
