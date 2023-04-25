@@ -1,3 +1,10 @@
+---
+
+# ***Uwaga!***
+Ta gałąź nie jest już rozwijana i nie zawiera dużej ilości funkcji względem *[głównej gałęzi](https://github.com/Io-Maciek/StacjaPogodowa/tree/pico_with_esp)*.
+
+---
+
 # Stacja pogodowa
 Projekt wykorzystuje:
 - [Raspberry Pi Pico W](https://botland.com.pl/moduly-i-zestawy-do-raspberry-pi-pico/21574-raspberry-pi-pico-w-rp2040-arm-cortex-m0-cyw43439-wifi-5056561803173.html) ***(model z internetem)***
