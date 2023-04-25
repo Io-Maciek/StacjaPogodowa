@@ -1,16 +1,17 @@
 import time
 
 def admin_main(e, lcd):
-    e.setCurrentWiFiMode(2)
+    e.setCurrentWiFiMode(3)
     e._sendToESP8266('AT+CWSAP="stacjapogodowa","",11,0,3\r\n')
     e._sendToESP8266('AT+CIPMUX=1\r\n')
-    print("Server: "+str(e._sendToESP8266('AT+CIPSERVER=1,8000\r\n')))
+    print("Server: "+str(e._sendToESP8266('AT+CIPSERVER=1,80\r\n')))
     uart = e.__uartObj
     ip = str(e._sendToESP8266("AT+CIPAP?\r\n"))[13:24]
     print("IP = "+ip)
     lcd.clear()
-    lcd.putstr("ADMIN\n"+ip+":8000")
+    lcd.putstr("ADMIN\n"+ip)
     SERVER_LOOP= True
+
     
     while SERVER_LOOP:
         read = uart.read(2000)
@@ -47,11 +48,19 @@ def admin_main(e, lcd):
                     except OSError:
                         net_lines = ['BRAK', 'BRAK']
                     
-                    HTML_CONTENT = f"<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Stacja pogodowa</title></head><body bgcolor='gray' style='color: black'><h1>WiFi</h1><form method='POST' action='/wifi'><label>SSID</label><input value={net_lines[0]} name='ssid' type='text'/><br><label>HASLO</label><input value={net_lines[1]} name='pwd' type='text'/><br></br><button type='submit'><h2>Zapisz</h2></button></form></body></html>"        
+                    options = ""
+                    scan = [x[1][1:-1] for x in e.getAvailableAPs()]
+                    for s in scan:
+                        options+="<option value="+s+">"+s+"</option>"
+                    
+                    HTML_CONTENT = "<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Stacja pogodowa</title></head><body bgcolor='gray' style='color: black'><h1>WiFi</h1><form method='POST' action='/wifi'><label>SSID</label><input id=\"ssidinput\" value=\""+net_lines[0]+"\" name='ssid' type='text'/><br><select id=\"myssid\" onchange=\"setssid()\">"+options+"</select><br><label>HASLO</label><input value=\""+net_lines[1]+"\" name='pwd' type='text'/><br><label><input type='checkbox' onclick='showAddClicked();'/>Więcej opcji</label></br><div id='addDiv' style='display: none;'><label>IP</label><input type='text' name='ip_adress'/></br><label>Gateway</label><input type='text' name='gateway'/></br><label>Netmask</label><input type='text' name='netmask'/></br></div><br></br><button type='submit'><h2>Zapisz</h2></button></form></body><script>function showAddClicked(){ div = document.getElementById('addDiv');styl = div.style.display;if (styl == 'none'){ div.style.display='inline';}else { div.style.display='none';}} function setssid(){document.getElementById(\"ssidinput\").value = document.getElementById(\"myssid\").value}</script></html>"        
                     HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: text/html;charset=UTF-8\r\nConnection: close\r\n\r\n<!DOCTYPE HTML>\r\n{HTML_CONTENT}\r\n\r\n'
                 else:
+                    print(post_args)
                     netinfo = open("netinfo.txt",'w')
                     netinfo.write(f"{post_args['ssid']}\n{post_args['pwd']}")
+                    if len(post_args)>3:
+                        netinfo.write(f"\n{post_args['ip_adress']}\n{post_args['gateway']}\n{post_args['netmask']}")
                     netinfo.close()
                     HTML_SENDER = "HTTP/1.1 302  Found\r\nLocation: \ \r\n\r\n"
                 time.sleep(0.1)

@@ -1,5 +1,5 @@
 import time
-from machine import Pin, RTC,I2C,UART
+from machine import Pin, RTC,I2C,UART, reset
 from machine_i2c_lcd import I2cLcd
 from classess.zegar import Zegar
 from dht22 import DHT22
@@ -10,6 +10,14 @@ from classess.polskie_znaki import *
 from classess.http.esp8266 import ESP8266
 from classess.admin_mode_main import admin_main
 from classess.pms_sensor import PMS5003
+import bme280
+import sys
+
+# czujnik cisnienia
+#bme_i2c=I2C(0,sda=Pin(12), scl=Pin(13), freq=400000)
+#print(bme_i2c.scan())
+#bme = bme280.BME280(i2c=bme_i2c)
+#print(bme.values)
 
 # dioda informacyjna
 led = Pin(25, Pin.OUT)
@@ -20,6 +28,8 @@ led.off()
 i2c = I2C(0, sda=Pin(0), scl=Pin(1), freq=400000)
 I2C_ADDR = i2c.scan()[0]
 lcd = I2cLcd(i2c, I2C_ADDR, 4, 20)
+lcd.backlight_on()
+lcd.clear()
 
 lcd.custom_char(0,tick_mark)
 lcd.custom_char(1,l)
@@ -29,6 +39,20 @@ lcd.custom_char(4,s)
 lcd.custom_char(5,c)
 
 
+# INICJACJA
+print("Init")
+lcd.putstr("Init")
+
+# guzik trybu administracyjnego
+admin_mode = False
+def set_admin_mode(button):
+    global admin_mode
+    if not admin_mode:        
+        admin_mode = True
+        print('Włączam Admin')
+
+button_admin = Pin(14, Pin.IN, Pin.PULL_DOWN)
+button_admin.irq(trigger=Pin.IRQ_FALLING, handler=set_admin_mode, hard=True)
 
 
 # dioda IR RX
@@ -70,28 +94,51 @@ def ir_callback(data, addr, ctrl):
     
 ir = NEC(Pin(19, Pin.IN),ir_callback)
 
+# czujnik pogody
+rp2.PIO(0).remove_program() #?????
+sensor = None
+try:
+    sensor = DHT22(Pin(18,Pin.IN,Pin.PULL_UP))
+    if sensor.read() == (None, None):
+        lcd.clear()
+        lcd.putstr("DHT22 ERR")
+        sys.exit() 
+except Exception as e:
+    lcd.clear()
+    lcd.putstr("DHT22 ERR")
+    print(e)
+    sys.exit()
+
+
+# czujnik pylow
+pms = None
+try:
+    pms = PMS5003(
+        uart=machine.UART(1, tx=machine.Pin(8), rx=machine.Pin(9), baudrate=9600),
+        pin_enable=machine.Pin(3),
+        pin_reset=machine.Pin(2),
+        mode="active"
+    )
+except Exception as e:
+    lcd.clear()
+    lcd.putstr("PMS ERR")
+    print(e)
+    sys.exit()
 
 
 
-
-
-# INICJACJA
-print("Init")
-lcd.putstr("Init")
-
-# guzik trybu administracyjnego
-admin_mode = False
-def set_admin_mode(button):
-    global admin_mode
-    if not admin_mode:
-        admin_mode = True
-
-button_admin = Pin(14, Pin.IN, Pin.PULL_DOWN)
-button_admin.irq(trigger=Pin.IRQ_FALLING, handler=set_admin_mode, hard=True)
 
 # uruchamianie esp01
-esp01 = ESP8266(txPin=(16), rxPin=(17))
-esp8266_at_ver = None
+esp01 = None
+try:
+    esp01 = ESP8266(txPin=(16), rxPin=(17))
+    esp8266_at_ver = None
+except Exception as e:
+    lcd.clear()
+    lcd.putstr("ESP ERR")
+    print(e)
+    sys.exit()
+
 
 print("Start",esp01.startUP())#esp01.reStart())
 esp01._sendToESP8266("AT+RESTORE\r\n")
@@ -103,9 +150,26 @@ if(esp8266_at_ver != None):
     print(esp8266_at_ver)
     time.sleep(0.5)
 
+lcdon = True
+def lcdtoggle(p):
+    global lcdon, lcd
+    try:
+        lcdon = not lcdon
+        if not lcdon:
+            lcd.backlight_off()
+        else:
+            lcd.backlight_on()
+    except Exception as e:
+        print(e)
+        
+def machinereset(p):
+    reset()
 
 button_admin.irq(trigger=0)
+
+
 if admin_mode:# or not admin_mode:
+    button_admin.irq(trigger=Pin.IRQ_FALLING, handler=machinereset)
     print("\n###                     ###\n### TRYB ADMINISTRATORA ###\n###                     ###\n")
     admin_main(esp01, lcd)
     print("\n###            ###\n### ZAKOŃCZONO ###\n###            ###\n")
@@ -115,6 +179,8 @@ if admin_mode:# or not admin_mode:
     print("Wyłączam echo",esp01.echoING())
     print("\r\n\r\n")
 
+button_admin.irq(trigger=0)
+button_admin.irq(trigger=Pin.IRQ_FALLING, handler=lcdtoggle)
 
 esp01.setCurrentWiFiMode(1)
 print("\r\n\r\nŁączę z WiFi...")
@@ -125,6 +191,8 @@ netinfo.close()
 lcd.clear()
 lcd.putstr(chr(1)+chr(2)+"cz"+chr(3)+" z sieci"+chr(2)+"...  ")
 led.on()
+
+# TODO timeout???
 while (1):
     if "WIFI CONNECTED" in esp01.connectWiFi(net_lines[0].strip(), net_lines[1].strip()):
         break;
@@ -168,7 +236,7 @@ def download_and_set_time(show=False):
             RTC().datetime(tm)
             godzinaIsSet = True
             if show:
-                lcd.move_to(20,1)
+                lcd.move_to(19,1)
                 lcd.putchar(chr(0))
             print("\nPobrano!")
         except:
@@ -206,23 +274,6 @@ except (OSError, ValueError):
 
 godzinaIsSet = False
 download_and_set_time(True)
-
-
-
-        
-# czujnik pogody
-rp2.PIO(0).remove_program() #?????
-sensor = DHT22(Pin(18,Pin.IN,Pin.PULL_UP))
-
-
-# czujnik pylow
-pms = PMS5003(
-    uart=machine.UART(1, tx=machine.Pin(8), rx=machine.Pin(9), baudrate=9600),
-    pin_enable=machine.Pin(3),
-    pin_reset=machine.Pin(2),
-    mode="active"
-)
-
 
 # program
 lcd.clear()
@@ -277,8 +328,18 @@ while True:
             contents_json = json.dumps(contents)
             HTML_CONTENT = contents_json      
             HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: application/json;charset=UTF-8\r\nConnection: close\r\n\r\n{HTML_CONTENT}\r\n\r\n'
+        elif URL=='/reset':
+            HTML_CONTENT = f"<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Stacja pogodowa</title></head><body bgcolor='gray' style='color: black'><h1></h1>Resetuje...</body></html>"        
+            HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: text/html;charset=UTF-8\r\nConnection: close\r\n\r\n<!DOCTYPE HTML>\r\n{HTML_CONTENT}\r\n\r\n'
+            uart.write(f'AT+CIPSEND=0,{len(HTML_SENDER)}\r\n')
+            time.sleep(0.1)
+            uart.write(HTML_SENDER)
+            time.sleep(0.1)
+            lcd.clear()
+            lcd.putstr('Resetuje...')
+            reset()
         else:
-            HTML_CONTENT = f"<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Stacja pogodowa</title></head><body bgcolor='gray' style='color: black'><h1>Temperatura: {temp} &#xb0;C</h1><h1>Wilgotnosc: {wilg} %</h1><h1>PM1.0: {PM1_0} ug/m3</h1><h1>PM2.5: {PM2_5} ug/m3</h1><h1>PM10: {PM10} ug/m3</h1><hr><a href='/api'><button><h2>API</h2></button></a></body></html>"        
+            HTML_CONTENT = f"<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Stacja pogodowa</title></head><body bgcolor='gray' style='color: black'><h1>Temperatura: {temp} &#xb0;C</h1><h1>Wilgotnosc: {wilg} %</h1><h1>PM1.0: {PM1_0} ug/m3</h1><h1>PM2.5: {PM2_5} ug/m3</h1><h1>PM10: {PM10} ug/m3</h1><hr><a href='/api'><button><h2>API</h2></button></a><br><a href='/reset'><button><h2>Reset</h2></button></a></body></html>"        
             HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: text/html;charset=UTF-8\r\nConnection: close\r\n\r\n<!DOCTYPE HTML>\r\n{HTML_CONTENT}\r\n\r\n'
         uart.write(f'AT+CIPSEND=0,{len(HTML_SENDER)}\r\n')
         time.sleep(0.1)
