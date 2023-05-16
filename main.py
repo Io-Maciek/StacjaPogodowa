@@ -12,6 +12,7 @@ from classess.admin_mode_main import admin_main
 from classess.pms_sensor import PMS5003
 import bme280
 import sys
+import uos
 
 # czujnik cisnienia
 #bme_i2c=I2C(0,sda=Pin(12), scl=Pin(13), freq=400000)
@@ -54,6 +55,13 @@ def set_admin_mode(button):
 button_admin = Pin(14, Pin.IN, Pin.PULL_DOWN)
 button_admin.irq(trigger=Pin.IRQ_FALLING, handler=set_admin_mode, hard=True)
 
+
+def lcd_toggle(lcd):
+    if lcd.backlight==True:
+        lcd.backlight_off()
+    else:
+        lcd.backlight_on()
+              
 
 # dioda IR RX
 def ir_callback(data, addr, ctrl):
@@ -167,6 +175,12 @@ def machinereset(p):
 
 button_admin.irq(trigger=0)
 
+try:
+    f = open('netinfo.txt', "r")
+    f.close()
+except OSError:  # open failed
+    print('Nie znaleziono pliku.')
+    admin_mode = True
 
 if admin_mode:# or not admin_mode:
     button_admin.irq(trigger=Pin.IRQ_FALLING, handler=machinereset)
@@ -279,7 +293,12 @@ download_and_set_time(True)
 lcd.clear()
 print("")
 esp01._sendToESP8266('AT+CIPMUX=1\r\n')
-ip = str(esp01._sendToESP8266("AT+CIPSTA?\r\n"))[14:29]
+esp_info = str(esp01._sendToESP8266("AT+CIPSTA?\r\n"))
+s= esp_info.find('ip:"') + len('ip:"')
+e=esp_info.find('"\\r\\n+')
+ip = esp_info[s:e]
+print("ip: ",end='')
+print(ip)
 print("Server: "+str(esp01._sendToESP8266('AT+CIPSERVER=1,80\r\n'))+"\n\n")
 uart = esp01.__uartObj
 lcd.move_to(0,1)
@@ -322,28 +341,52 @@ while True:
         _LAST = str(read).index("HTTP/1.1")-1
         URL = str(read)[_FIRST:_LAST]
         print(f"URL '{URL}'")
-        time.sleep(0.1)
-        if URL=='/api':
-            contents = {"temperatura": temp, "wilgoc": wilg, "czas": zegar.time_tuple, "PM1_0": PM1_0, "PM2_5": PM2_5, "PM10": PM10}
-            contents_json = json.dumps(contents)
-            HTML_CONTENT = contents_json      
-            HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: application/json;charset=UTF-8\r\nConnection: close\r\n\r\n{HTML_CONTENT}\r\n\r\n'
-        elif URL=='/reset':
-            HTML_CONTENT = f"<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Stacja pogodowa</title></head><body bgcolor='gray' style='color: black'><h1></h1>Resetuje...</body></html>"        
-            HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: text/html;charset=UTF-8\r\nConnection: close\r\n\r\n<!DOCTYPE HTML>\r\n{HTML_CONTENT}\r\n\r\n'
-            uart.write(f'AT+CIPSEND=0,{len(HTML_SENDER)}\r\n')
-            time.sleep(0.1)
-            uart.write(HTML_SENDER)
-            time.sleep(0.1)
-            lcd.clear()
-            lcd.putstr('Resetuje...')
-            reset()
+        
+        
+        
+        if 'Authorization: Basic' in read:
+            auth = (str(read[read.find(b'Authorization: Basic')+len('Authorization: Basic '):]).split('\\r\\n')[0])
+            if auth[2:].strip() == 'YWRtaW46YWRtaW4=': # TODO add changing pass to admin mode
+                if URL=='/api':
+                    contents = {"temperatura": temp, "wilgoc": wilg, "czas": zegar.time_tuple, "PM1_0": PM1_0, "PM2_5": PM2_5, "PM10": PM10, "lcd": lcd.backlight}
+                    contents_json = json.dumps(contents)
+                    HTML_CONTENT = contents_json      
+                    HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: application/json;charset=UTF-8\r\nConnection: close\r\n\r\n{HTML_CONTENT}\r\n\r\n'
+                elif URL=='/reset':
+                    HTML_CONTENT = f"<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Stacja pogodowa</title></head><body bgcolor='gray' style='color: black'><h1></h1>Resetuje...</body></html>"        
+                    HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: text/html;charset=UTF-8\r\nConnection: close\r\n\r\n<!DOCTYPE HTML>\r\n{HTML_CONTENT}\r\n\r\n'
+                    uart.write(f'AT+CIPSEND=0,{len(HTML_SENDER)}\r\n')
+                    time.sleep(0.1)
+                    uart.write(HTML_SENDER)
+                    time.sleep(0.1)
+                    lcd.clear()
+                    lcd.putstr('Resetuje...')
+                    reset()
+                elif URL=='/lcd':
+                    lcd_toggle(lcd)
+                else:
+                    HTML_CONTENT = f"<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Stacja pogodowa</title></head><body bgcolor='gray' style='color: black'><h1>Temperatura: {temp} &#xb0;C</h1><h1>Wilgotnosc: {wilg} %</h1><h1>PM1.0: {PM1_0} ug/m3</h1><h1>PM2.5: {PM2_5} ug/m3</h1><h1>PM10: {PM10} ug/m3</h1><hr><a href='/api'><button><h2>API</h2></button></a><br><a href='/lcd'><button><h2>LCD</h2></button></a><br><a href='/reset'><button><h2>Reset</h2></button></a></body></html>"        
+                    HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: text/html;charset=UTF-8\r\nConnection: close\r\n\r\n<!DOCTYPE HTML>\r\n{HTML_CONTENT}\r\n\r\n'
+                uart.write(f'AT+CIPSEND=0,{len(HTML_SENDER)}\r\n')
+                time.sleep(0.1)
+                uart.write(HTML_SENDER)
+            else:
+                err_not_autorized_mess='<h1>401 Unauthorized</h1>'
+                sender=f'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm="Restricted"\r\nContent-type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n{err_not_autorized_mess}\r\n\r\n'
+                
+                
+                uart.write(f'AT+CIPSEND=0,{len(sender)}\r\n')
+                time.sleep(0.1)
+                uart.write(sender)
         else:
-            HTML_CONTENT = f"<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Stacja pogodowa</title></head><body bgcolor='gray' style='color: black'><h1>Temperatura: {temp} &#xb0;C</h1><h1>Wilgotnosc: {wilg} %</h1><h1>PM1.0: {PM1_0} ug/m3</h1><h1>PM2.5: {PM2_5} ug/m3</h1><h1>PM10: {PM10} ug/m3</h1><hr><a href='/api'><button><h2>API</h2></button></a><br><a href='/reset'><button><h2>Reset</h2></button></a></body></html>"        
-            HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: text/html;charset=UTF-8\r\nConnection: close\r\n\r\n<!DOCTYPE HTML>\r\n{HTML_CONTENT}\r\n\r\n'
-        uart.write(f'AT+CIPSEND=0,{len(HTML_SENDER)}\r\n')
-        time.sleep(0.1)
-        uart.write(HTML_SENDER)
+            err_not_autorized_mess='<h1>401 Unauthorized</h1>'
+            sender=f'HTTP/1.1 401 Unauthorized\r\nWWW-Authenticate: Basic realm="Restricted"\r\nContent-type: text/html\r\n\r\n<!DOCTYPE HTML>\r\n{err_not_autorized_mess}\r\n\r\n'
+            
+            
+            uart.write(f'AT+CIPSEND=0,{len(sender)}\r\n')
+            time.sleep(0.1)
+            uart.write(sender)
         time.sleep(0.1)
     uart.write('AT+CIPCLOSE=0\r\n')
     time.sleep(.8)
+        
