@@ -9,8 +9,8 @@ class Zegar:
     minuta = 0
     sekunda = 0
     
-    def __init__(self):
-        self.time_tuple = time.localtime()
+    def __init__(self, local_time_hour):
+        self.time_tuple = time.localtime(time.time() +local_time_hour * 3600)
         
         self.rok = self.time_tuple[0]
         self.godzina = self.time_tuple[3]

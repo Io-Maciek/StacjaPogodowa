@@ -421,8 +421,31 @@ class ESP8266:
                 return False
         else:
             False
+
+    def _createUDPConnection(self, link, port=80):
+        """
+        This fucntion use to create connect between ESP8266 and Host.
+        Just like create a socket before complete the HTTP Get/Post operation.
+        
+        Return:
+            False on failed to create a socket connection
+            True on successfully create and establish a socket connection.
+        """
+        #self._sendToESP8266("AT+CIPMUX=0")
+        txData="AT+CIPSTART="+'"'+"UDP"+'"'+','+'"'+link+'"'+','+str(port)+"\r\n"
+        #print(txData)
+        retData = self._sendToESP8266(txData)
+        #print(".....")
+        if(retData != None):
+            if ESP8266_OK_STATUS in retData:
+                return True
+            else:
+                return False
+        else:
+            False
     
-    def doHttpGet(self,host,path,user_agent="RPi-Pico", port=80):
+    
+    def doHttpGet(self,host,path,user_agent="RPi-Pico", port=80, tcp = True):
         """
         This fucntion use to complete a HTTP Get operation
         
@@ -437,13 +460,21 @@ class ESP8266:
             On failed return 0 and None
         
         """
-        if(self._createTCPConnection(host, port) == True):
+        _result = False
+        if tcp:
+            _result =self._createTCPConnection(host, port)
+        else:
+            _result =self._createUDPConnection(host, port)
+        
+        if(_result):
             self._createHTTPParseObj()
             #getHeader="GET "+path+" HTTP/1.1\r\n"+"Host: "+host+":"+str(port)+"\r\n"+"User-Agent: "+user_agent+"\r\n"+"\r\n";
             getHeader="GET "+path+" HTTP/1.1\r\n"+"Host: "+host+"\r\n"+"User-Agent: "+user_agent+"\r\n"+"\r\n";
             #print(getHeader,len(getHeader))
             txData="AT+CIPSEND="+str(len(getHeader))+"\r\n"
             retData = self._sendToESP8266(txData)
+            print("\n\nUDP:")
+            print(retData)
             if(retData != None):
                 if ">" in retData:
                     retData = self._sendToESP8266(getHeader, delay=2)

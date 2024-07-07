@@ -13,6 +13,7 @@ from classess.pms_sensor import PMS5003
 import bme280
 import sys
 import uos
+import ntptime
 
 # czujnik cisnienia
 #bme_i2c=I2C(0,sda=Pin(12), scl=Pin(13), freq=400000)
@@ -27,8 +28,7 @@ led.off()
 
 # ekran
 i2c = I2C(0, sda=Pin(0), scl=Pin(1), freq=400000)
-I2C_ADDR = i2c.scan()[0]
-lcd = I2cLcd(i2c, I2C_ADDR, 4, 20)
+lcd = I2cLcd(i2c, 39, 4, 20)
 lcd.backlight_on()
 lcd.clear()
 
@@ -42,7 +42,8 @@ lcd.custom_char(5,c)
 
 # INICJACJA
 print("Init")
-lcd.putstr("Init")
+lcd.clear()
+lcd.putstr("Init\n")
 
 # guzik trybu administracyjnego
 admin_mode = False
@@ -52,6 +53,7 @@ def set_admin_mode(button):
         admin_mode = True
         print('Włączam Admin')
 
+lcd.putstr(' Guzik')
 button_admin = Pin(14, Pin.IN, Pin.PULL_DOWN)
 button_admin.irq(trigger=Pin.IRQ_FALLING, handler=set_admin_mode, hard=True)
 
@@ -65,7 +67,7 @@ def lcd_toggle(lcd):
 
 # dioda IR RX
 def ir_callback(data, addr, ctrl):
-    global godzina_local
+    global godzina_local, lcd
     if data >= 0:  # NEC protocol sends repeat codes.
         #print('Data {}'.format(data))
         if data==9:
@@ -77,25 +79,25 @@ def ir_callback(data, addr, ctrl):
             f = open("g.txt","w")
             f.write(str(godzina_local))
             f.close()
-            tm = time.localtime(time.time() - (3600))
-            tm = tm[0:3] + (0,) + tm[3:6] + (0,)
-            RTC().datetime(tm)
+            lcd.move_to(0,0)
+            zegar = Zegar(godzina_local)
+            lcd.putstr(str(zegar))
         elif data == 25:
-            tm = time.localtime(time.time() - (godzina_local*3600))
-            tm = tm[0:3] + (0,) + tm[3:6] + (0,)
-            RTC().datetime(tm)
             godzina_local = 0
             f = open("g.txt","w")
             f.write(str(godzina_local))
             f.close()
+            lcd.move_to(0,0)
+            zegar = Zegar(godzina_local)
+            lcd.putstr(str(zegar))
         elif data == 13 and godzina_local<6:
             godzina_local = godzina_local + 1
             f = open("g.txt","w")
             f.write(str(godzina_local))
             f.close()
-            tm = time.localtime(time.time() + (3600))
-            tm = tm[0:3] + (0,) + tm[3:6] + (0,)
-            RTC().datetime(tm)
+            lcd.move_to(0,0)
+            zegar = Zegar(godzina_local)
+            lcd.putstr(str(zegar))
         else:
             #print(wlan.ifconfig()[0])
             print("other")
@@ -103,6 +105,7 @@ def ir_callback(data, addr, ctrl):
 ir = NEC(Pin(19, Pin.IN),ir_callback)
 
 # czujnik pogody
+lcd.putstr(', DHT22')
 rp2.PIO(0).remove_program() #?????
 sensor = None
 try:
@@ -117,8 +120,18 @@ except Exception as e:
     print(e)
     sys.exit()
 
+bme = None
+try:
+    lcd.putstr(', BME')
+    bme = bme280.BME280(i2c = i2c, address = 118)
+except Exception as e:
+    lcd.clear()
+    lcd.putstr("BME280 ERR")
+    print(e)
+    sys.exit()
 
 # czujnik pylow
+lcd.putstr(',\n PMS')
 pms = None
 try:
     pms = PMS5003(
@@ -137,6 +150,7 @@ except Exception as e:
 
 
 # uruchamianie esp01
+lcd.putstr(', ESP')
 esp01 = None
 try:
     esp01 = ESP8266(txPin=(16), rxPin=(17))
@@ -148,8 +162,8 @@ except Exception as e:
     sys.exit()
 
 
-print("Start",esp01.startUP())#esp01.reStart())
-esp01._sendToESP8266("AT+RESTORE\r\n")
+print("Start ESP?:",esp01.startUP())#esp01.reStart())
+#esp01._sendToESP8266("AT+RESTORE\r\n")
 print("Wyłączam echo",esp01.echoING())
 print("\r\n\r\n")
 
@@ -207,18 +221,20 @@ lcd.putstr(chr(1)+chr(2)+"cz"+chr(3)+" z sieci"+chr(2)+"...  ")
 led.on()
 
 # TODO timeout???
-while (1):
+_t = time.time() + 10
+
+while _t >= time.time():
     if "WIFI CONNECTED" in esp01.connectWiFi(net_lines[0].strip(), net_lines[1].strip()):
         break;
     else:
         print(".")
         time.sleep(2)
 
-if len(net_lines)>3:
-    print("not DHCP")
-    print("Konfiguracja internetu: "+str(esp01._sendToESP8266(f"AT+CIPSTA=\"{net_lines[2]}\",\"{net_lines[3]}\",\"{net_lines[4]}\"\r\n")))
-else:
-    print("DHCP")
+#if len(net_lines)>3:
+#    print("not DHCP")
+#    print("Konfiguracja internetu: "+str(esp01._sendToESP8266(f"AT+CIPSTA=\"{net_lines[2]}\",\"{net_lines[3]}\",\"{net_lines[4]}\"\r\n")))
+#else:
+#    print("DHCP")
 
 print("ALL: "+str(str(esp01._sendToESP8266("AT+CIPSTA?\r\n"))))
 lcd.putchar(chr(0))
@@ -235,62 +251,33 @@ def properJSONfromHTTPresponse(http):
     return json.loads(sums)
 
 
-# pobieranie godziny
-def download_and_set_time(show=False):
-    if show:
-        lcd.putstr("\nPobieram godzin"+chr(3))
-    print("\nPróbuję pobrać godzinę",end='')
-    godzinaErrCount = 0
-    global godzinaIsSet
-    while not godzinaIsSet and godzinaErrCount < 3:
-        try:
-            _, httpRes = esp01.doHttpGet("date.jsontest.com","/","Pi-Pico", port=80)
-            tm = time.localtime(int(str(properJSONfromHTTPresponse(httpRes)["milliseconds_since_epoch"])[0:-3])+godzina_local*3600)
-            tm = tm[0:3] + (0,) + tm[3:6] + (0,)
-            RTC().datetime(tm)
-            godzinaIsSet = True
-            if show:
-                lcd.move_to(19,1)
-                lcd.putchar(chr(0))
-            print("\nPobrano!")
-        except:
-            print(".",end='')
-            godzinaErrCount = godzinaErrCount + 1
-            if show:
-                lcd.putstr(".")
-            if godzinaErrCount >= 3:
-                if show:
-                    lcd.putstr("X")
-                time.sleep(3)
-            else:
-                time.sleep(3)
-    update_connection_mark()
+
     
-def update_connection_mark():
-    global godzinaIsSet
-    lcd.move_to(19,0)
-    if not godzinaIsSet:        
-        lcd.putchar('X')
-    else:
-        lcd.putchar(chr(0))
 
 
+### TIME ###
 
-# czytanie lokalnego dodatku godziny z pliku g.txt
-godzina_local=0
+godzina_local=0 # get local hour from file
 try:
     f = open("g.txt","r+")
     godzina_local = int(f.read())
     f.close()
-except (OSError, ValueError):
+except:
     godzina_local = 0
 
 
-godzinaIsSet = False
-download_and_set_time(True)
+lcd.putstr("\nPobieram godzin"+chr(3)) 
+print(f"\nPróbuję pobrać godzinę\t{godzina_local}",end='')
+ntptime.settime(esp01) # get time from ntp server      
+
+lcd.move_to(19,0)
+lcd.putchar(chr(0)) # print tick mark to indicate correct time set
+###########
+
+
+
 
 # program
-lcd.clear()
 print("")
 esp01._sendToESP8266('AT+CIPMUX=1\r\n')
 esp_info = str(esp01._sendToESP8266("AT+CIPSTA?\r\n"))
@@ -301,11 +288,12 @@ print("ip: ",end='')
 print(ip)
 print("Server: "+str(esp01._sendToESP8266('AT+CIPSERVER=1,80\r\n'))+"\n\n")
 uart = esp01.__uartObj
+lcd.clear()
 lcd.move_to(0,1)
 lcd.putstr(ip)
 
 
-update_connection_mark()
+
 lcd.move_to(0,2)
 lcd.putstr("Temperatura       "+chr(223)+"C")
 lcd.move_to(0,3)
@@ -314,26 +302,45 @@ lcd.putstr("Wilgotno"+chr(4)+chr(5)+"         %")
 while True:
     # czas
     lcd.move_to(0,0)
-    zegar = Zegar()
+    zegar = Zegar(godzina_local)
     lcd.putstr(str(zegar))
     
-    # pogoda
+    
+    
+    # pogoda BME, 
+    t, p, h = bme.read_compensated_data()
+    t = t/100
+    p = (p/256)/100
+    h = {'wilgoc': h,'jednostka':'%', 'jednostka_slownie': 'procenty'}
+    t = {'temperatura': t,'jednostka':'°C', 'jednostka_slownie': 'stopnie celcjusza'}
+    p = {'cisnienie': p, 'jednostka': 'hPa', 'jednostka_slownie': 'hektopaskale'}
+
+    bme_data = [t, p, h]
+    
     try:
         temp, wilg = sensor.read()
         lcd.move_to(12,2)
         lcd.putstr("{:.2f}".format(temp))
         lcd.move_to(12,3)
         lcd.putstr("{:.2f}".format(wilg))
-    except ValueError:
+    except:
         lcd.move_to(12,2)
         lcd.putstr("N/A  ")
         lcd.move_to(12,3)
         lcd.putstr("N/A  ")
     pms_data = pms.read().data[:3]
+    
     PM1_0 = pms_data[0]
     PM2_5 = pms_data[1]
     PM10 = pms_data[2]
     
+    #pyly ={'PM 1': {'wartosc': PM1_0, 'opis': 'najdrobniejsze cząstki'},
+    #       'PM 2,5': {'wartosc': PM2_5, 'opis': 'cząstki spalania, związki organiczne, metale'},
+    #       'PM 10': {'wartosc': PM10, 'opis': 'kurz, pyłki, zarodniki pleśni'},
+    #       'jednostka': 'ug/m^3' # µg/m³
+    #       }
+    
+
     read = uart.read()
     if read is not None and "+IPD" in read:
         #print(read)
@@ -348,7 +355,9 @@ while True:
             auth = (str(read[read.find(b'Authorization: Basic')+len('Authorization: Basic '):]).split('\\r\\n')[0])
             if auth[2:].strip() == 'YWRtaW46YWRtaW4=': # TODO add changing pass to admin mode
                 if URL=='/api':
-                    contents = {"temperatura": temp, "wilgoc": wilg, "czas": zegar.time_tuple, "PM1_0": PM1_0, "PM2_5": PM2_5, "PM10": PM10, "lcd": lcd.backlight}
+                    contents = {"temperatura": temp, "wilgoc": wilg, "czas": zegar.time_tuple,
+                                "pyly":{'PM 1':PM1_0,'PM 2,5':PM2_5,'PM 10':PM10}, "lcd": lcd.backlight,
+                                'bme': bme_data}
                     contents_json = json.dumps(contents)
                     HTML_CONTENT = contents_json      
                     HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: application/json;charset=UTF-8\r\nConnection: close\r\n\r\n{HTML_CONTENT}\r\n\r\n'
@@ -364,8 +373,9 @@ while True:
                     reset()
                 elif URL=='/lcd':
                     lcd_toggle(lcd)
+                    HTML_SENDER = 'HTTP/1.0 302 OK\r\nLocation: / \r\n\r\n'
                 else:
-                    HTML_CONTENT = f"<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Stacja pogodowa</title></head><body bgcolor='gray' style='color: black'><h1>Temperatura: {temp} &#xb0;C</h1><h1>Wilgotnosc: {wilg} %</h1><h1>PM1.0: {PM1_0} ug/m3</h1><h1>PM2.5: {PM2_5} ug/m3</h1><h1>PM10: {PM10} ug/m3</h1><hr><a href='/api'><button><h2>API</h2></button></a><br><a href='/lcd'><button><h2>LCD</h2></button></a><br><a href='/reset'><button><h2>Reset</h2></button></a></body></html>"        
+                    HTML_CONTENT = f"<html><head><meta charset='utf-8'><meta name='viewport' content='width=device-width, initial-scale=1, shrink-to-fit=no'><title>Stacja pogodowa</title></head><body bgcolor='gray' style='color: black'><h1>Temperatura: {temp} &#xb0;C</h1><h1>Wilgotnosc: {wilg} %</h1><h1>PM1.0: {PM1_0} µg/m³</h1><h1>PM2.5: {PM2_5} µg/m³</h1><h1>PM10: {PM10} µg/m³</h1><br><h3>{bme_data}</h3><hr><a href='/api'><button><h2>API</h2></button></a><br><a href='/lcd'><button><h2>LCD</h2></button></a>{lcd.backlight}<br><a href='/reset'><button><h2>Reset</h2></button></a></body></html>"        
                     HTML_SENDER = f'HTTP/1.1 200 OK\r\nContent-Type: text/html;charset=UTF-8\r\nConnection: close\r\n\r\n<!DOCTYPE HTML>\r\n{HTML_CONTENT}\r\n\r\n'
                 uart.write(f'AT+CIPSEND=0,{len(HTML_SENDER)}\r\n')
                 time.sleep(0.1)
