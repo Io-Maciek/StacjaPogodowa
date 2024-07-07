@@ -7,6 +7,7 @@ Projekt wykorzystuje:
 - Moduł internetowy [ESP-01](https://botland.com.pl/produkty-wycofane/4527-modul-wifi-esp-01-esp8266-black-3-gpio-1mb-pcb-antena-5904422332877.html)
 - Czujnik pyłów PM1.0/2.5/10 [PMS5003](https://botland.com.pl/czujniki-czystosci-powietrza/6797-czujnik-pyluczystosci-powietrza-pm10-pm25-pm10-pms5003-5v-uart-5904422359041.html)
 - Dowolny [odbiornik podczerwieni](https://botland.com.pl/odbiorniki-podczerwieni/4931-odbiornik-podczerwieni-tsop31236-36-khz-5904422302757.html)
+- Wielofunkcyjny czujnik [BME280](https://botland.com.pl/czujniki-cisnienia/11803-bme280-czujnik-wilgotnosci-temperatury-oraz-cisnienia-110kpa-i2cspi-33v-5904422366179.html)
 
 
 
@@ -19,7 +20,7 @@ Projekt wykorzystuje:
 - [X] Obsługa odbiornika podczerwieni dla komunikacji użytkownika z programem z pomocą [repozytorium micropython_ir](https://github.com/peterhinch/micropython_ir)
   - [X] zmiana godziny
   - [X] zciemnianie wyświetlacza
-- [X] Pobieranie aktualnej godziny
+- [X] Pobieranie aktualnej godziny poprzez serwer NTP (z wykorzystaniem przepisanej biblioteki [npttime.py](https://github.com/micropython/micropython-lib/tree/master/micropython/net/ntptime) na komendy AT dla mikrokontrolera ESP)
 - [X] Wyświetlanie polskich znaków
 - [X] Tworzenie serwera wyświetlającego informację z czujników w formacie czytelnym i JSON
 
@@ -28,3 +29,10 @@ Projekt wykorzystuje:
 
 # Diagram połączenia
 ![diagram połączenia](img/stacja_pogodowa.png)
+
+Diagram chwilowo nie przedstawia połączenia układu BME, ale jest wpięty w ten sam I2C bus co ekran LCD.
+
+# Ustawienia WiFi
+W pamięci kontrolera Pico musi znajdywać się folder *netinfo.txt* z dwoma liniami:
+1. SSID
+2. Hasło
